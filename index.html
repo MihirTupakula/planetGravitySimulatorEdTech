@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Gravity Simulation - Height Adjustment</title>
+    <meta name="description" content="Gravity Simulation with Adjustable Height">
+    <!-- Include A-Frame Library -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <!-- Include MathJax for Equation Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+    <!-- Include Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      /* Container for the input form */
+      #controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+      }
+
+      #controls label,
+      #controls input,
+      #controls select {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      #heightInput,
+      #planetSelect {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 5px;
+      }
+
+      #controls button {
+        display: block;
+        margin-top: 5px;
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #planetInfo {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: #FFFFFF;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 18px;
+      }
+
+      #timerDisplay {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.8);
+        color: #000000;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 18px;
+      }
+
+      #equationDisplay {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.8);
+        color: #000000;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: left;
+        font-size: 16px;
+      }
+
+      #heightDisplay {
+        position: absolute;
+        top: 100px;
+        right: 20px;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.8);
+        color: #000000;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 18px;
+      }
+
+      /* Graph Container on the right side */
+      #graphsContainer {
+        position: absolute;
+        top: 180px;
+        right: 20px;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+      }
+
+      #graphsContainer canvas {
+        display: block;
+        margin-bottom: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Input Form -->
+    <div id="controls">
+      <label for="heightInput">Enter Height (meters):</label>
+      <input type="number" id="heightInput" value="5" step="0.1" min="0.5">
+      <label for="planetSelect">Select Planet:</label>
+      <select id="planetSelect" onchange="updatePlanet()">
+        <option value="earth">Earth</option>
+        <option value="mars">Mars</option>
+        <option value="jupiter">Jupiter</option>
+        <option value="neptune">Neptune</option>
+        <option value="saturn">Saturn</option>
+        <option value="mercury">Mercury</option>
+        <option value="pluto">Pluto</option>
+      </select>
+      <button onclick="startSimulation()">Start Simulation</button>
+      <button onclick="resetScene()">Reset Scene</button>
+    </div>
+
+    <!-- Planet Info Display -->
+    <div id="planetInfo">
+      Planet: Earth<br>
+      Gravity: 9.8 m/s²
+    </div>
+
+    <!-- Timer Display -->
+    <div id="timerDisplay">
+      Time to Fall: -- s
+    </div>
+
+    <!-- Height Display -->
+    <div id="heightDisplay">
+      Height: 5.0 m
+    </div>
+
+    <!-- Equation Display -->
+    <div id="equationDisplay">
+      <strong>Time to Fall Equation:</strong><br>
+      $$ t = \sqrt{\dfrac{2h}{g}} $$
+    </div>
+
+    <!-- Graphs Container -->
+    <div id="graphsContainer">
+      <strong>Real-Time Graphs</strong><br><br>
+      <strong>Velocity vs. Time</strong><br>
+      <canvas id="velocityChart" width="200" height="100"></canvas>
+      <strong>Acceleration vs. Time</strong><br>
+      <canvas id="accelerationChart" width="200" height="100"></canvas>
+    </div>
+
+    <!-- A-Frame Scene -->
+    <a-scene id="scene">
+      <!-- Falling Box -->
+      <a-box id="fallingBox" color="#AA0000" position="0 5 -5"></a-box>
+
+      <!-- Additional Shapes -->
+      <a-sphere id="sphere" color="#0000AA" radius="0.5" position="2 5 -5"></a-sphere>
+      <a-cylinder id="cylinder" color="#00AA00" radius="0.5" height="1" position="-2 5 -5"></a-cylinder>
+
+      <!-- Ground Plane -->
+      <a-plane id="ground" position="0 0 -5" rotation="-90 0 0" width="50" height="50"></a-plane>
+
+      <!-- Earth Elements -->
+      <a-entity id="earthElements" visible="false">
+        <a-cone position="5 0 -10" radius-bottom="0.5" height="2" color="#228B22"></a-cone>
+        <a-cone position="-5 0 -8" radius-bottom="0.5" height="2" color="#228B22"></a-cone>
+        <a-cone position="0 0 -15" radius-bottom="5" height="10" color="#8B4513"></a-cone>
+      </a-entity>
+
+      <!-- Mars Elements -->
+      <a-entity id="marsElements" visible="false">
+        <a-sphere position="3 0 -7" radius="1" color="#A0522D"></a-sphere>
+        <a-ring position="-4 0 -10" radius-inner="1" radius-outer="2" rotation="-90 0 0" color="#8B4513"></a-ring>
+        <a-cone position="0 0 -12" radius-bottom="3" height="5" color="#A0522D"></a-cone>
+      </a-entity>
+
+      <!-- Jupiter Elements -->
+      <a-entity id="jupiterElements" visible="false">
+        <a-sphere position="0 10 -5" radius="30" color="#F4A460" opacity="0.3"></a-sphere>
+        <a-sphere position="0 30 -5" radius="50" color="#D2691E" opacity="0.2"></a-sphere>
+      </a-entity>
+
+      <!-- Neptune Elements -->
+      <a-entity id="neptuneElements" visible="false">
+        <a-sphere position="0 15 -5" radius="40" color="#00008B" opacity="0.3"></a-sphere>
+        <a-sphere position="0 35 -5" radius="60" color="#000080" opacity="0.2"></a-sphere>
+      </a-entity>
+
+      <!-- Saturn Elements -->
+      <a-entity id="saturnElements" visible="false">
+        <a-torus position="0 1 -5" rotation="0 90 0" radius="25" radius-tubular="0.5" color="#D2B48C"></a-torus>
+        <a-torus position="0 1 -5" rotation="0 90 0" radius="27" radius-tubular="0.5" color="#F0E68C"></a-torus>
+      </a-entity>
+
+      <!-- Mercury Elements -->
+      <a-entity id="mercuryElements" visible="false">
+        <a-sphere position="2 0 -7" radius="1" color="#8B8B83"></a-sphere>
+        <a-sphere position="-3 0 -9" radius="0.8" color="#A9A9A9"></a-sphere>
+      </a-entity>
+
+      <!-- Pluto Elements -->
+      <a-entity id="plutoElements" visible="false">
+        <a-plane position="0 0 -10" rotation="-90 0 0" width="20" height="20" color="#D3D3D3"></a-plane>
+        <a-box position="3 0 -7" depth="1" height="1" width="1" color="#DCDCDC"></a-box>
+      </a-entity>
+
+      <a-entity id="fogEntity"></a-entity>
+      <a-sky id="sky"></a-sky>
+      <a-entity camera look-controls position="0 1.6 5"></a-entity>
+    </a-scene>
+
+    <script>
+      var initialPositions = {
+        box: { x: 0, y: 5, z: -5 },
+        sphere: { x: 2, y: 5, z: -5 },
+        cylinder: { x: -2, y: 5, z: -5 }
+      };
+
+      var defaultHeight = 5; // Default height in meters
+
+      // Planet data and environment settings
+      var planets = {
+        earth: {
+          name: 'Earth',
+          gravity: 9.8,
+          skyColor: '#87CEEB',
+          groundColor: '#228B22',
+          fogColor: '#87CEEB',
+          fogDensity: 0.001,
+          showEarthElements: true,
+          showMarsElements: false,
+          showJupiterElements: false,
+          showNeptuneElements: false,
+          showSaturnElements: false,
+          showMercuryElements: false,
+          showPlutoElements: false
+        },
+        mars: {
+          name: 'Mars',
+          gravity: 3.71,
+          skyColor: '#FFA07A',
+          groundColor: '#A0522D',
+          fogColor: '#FFA07A',
+          fogDensity: 0.005,
+          showEarthElements: false,
+          showMarsElements: true,
+          showJupiterElements: false,
+          showNeptuneElements: false,
+          showSaturnElements: false,
+          showMercuryElements: false,
+          showPlutoElements: false
+        },
+        jupiter: {
+          name: 'Jupiter',
+          gravity: 24.79,
+          skyColor: '#F4A460',
+          groundColor: '#F4A460',
+          fogColor: '#F4A460',
+          fogDensity: 0.02,
+          showEarthElements: false,
+          showMarsElements: false,
+          showJupiterElements: true,
+          showNeptuneElements: false,
+          showSaturnElements: false,
+          showMercuryElements: false,
+          showPlutoElements: false
+        },
+        neptune: {
+          name: 'Neptune',
+          gravity: 11.15,
+          skyColor: '#000080',
+          groundColor: '#00008B',
+          fogColor: '#000080',
+          fogDensity: 0.015,
+          showEarthElements: false,
+          showMarsElements: false,
+          showJupiterElements: false,
+          showNeptuneElements: true,
+          showSaturnElements: false,
+          showMercuryElements: false,
+          showPlutoElements: false
+        },
+        saturn: {
+          name: 'Saturn',
+          gravity: 10.44,
+          skyColor: '#EEE8AA',
+          groundColor: '#F5DEB3',
+          fogColor: '#EEE8AA',
+          fogDensity: 0.015,
+          showEarthElements: false,
+          showMarsElements: false,
+          showJupiterElements: false,
+          showNeptuneElements: false,
+          showSaturnElements: true,
+          showMercuryElements: false,
+          showPlutoElements: false
+        },
+        mercury: {
+          name: 'Mercury',
+          gravity: 3.7,
+          skyColor: '#D3D3D3',
+          groundColor: '#696969',
+          fogColor: '#D3D3D3',
+          fogDensity: 0.005,
+          showEarthElements: false,
+          showMarsElements: false,
+          showJupiterElements: false,
+          showNeptuneElements: false,
+          showSaturnElements: false,
+          showMercuryElements: true,
+          showPlutoElements: false
+        },
+        pluto: {
+          name: 'Pluto',
+          gravity: 0.62,
+          skyColor: '#696969',
+          groundColor: '#D3D3D3',
+          fogColor: '#696969',
+          fogDensity: 0.005,
+          showEarthElements: false,
+          showMarsElements: false,
+          showJupiterElements: false,
+          showNeptuneElements: false,
+          showSaturnElements: false,
+          showMercuryElements: false,
+          showPlutoElements: true
+        }
+      };
+
+      var currentPlanet = 'earth';
+
+      // Graph variables
+      var simulationRunning = false;
+      var startTime = null;
+      var lastTime = null;
+      var lastHeight = null;
+      var planetGravity = 9.8;
+
+      // Variables for 1-second interval updates
+      var lastGraphUpdateSecond = 0;
+      var graphHeightAtLastUpdate = null;
+
+      // Initialize Charts for Velocity and Acceleration
+      var velocityCtx = document.getElementById('velocityChart').getContext('2d');
+      var velocityChart = new Chart(velocityCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Velocity (m/s)',
+            data: [],
+            borderColor: 'red',
+            borderWidth: 3,
+            tension: 0.2,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: false,
+          animation: false,
+          scales: {
+            x: {
+              title: { display: true, text: 'Time (s)' }
+            },
+            y: {
+              title: { display: true, text: 'Velocity (m/s)' },
+              suggestedMin: 0,
+              suggestedMax: 100
+            }
+          }
+        }
+      });
+
+      var accelerationCtx = document.getElementById('accelerationChart').getContext('2d');
+      var accelerationChart = new Chart(accelerationCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Acceleration (m/s²)',
+            data: [],
+            borderColor: 'green',
+            borderWidth: 3,
+            tension: 0.2,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: false,
+          animation: false,
+          scales: {
+            x: {
+              title: { display: true, text: 'Time (s)' }
+            },
+            y: {
+              title: { display: true, text: 'Acceleration (m/s²)' },
+              suggestedMin: 0,
+              suggestedMax: 15
+            }
+          }
+        }
+      });
+
+      function updatePlanet() {
+        currentPlanet = document.getElementById('planetSelect').value;
+        var planet = planets[currentPlanet];
+        planetGravity = planet.gravity;
+
+        // Update sky color
+        var sky = document.querySelector('#sky');
+        sky.setAttribute('color', planet.skyColor);
+        sky.removeAttribute('src');
+
+        // Update ground color
+        var ground = document.querySelector('#ground');
+        ground.setAttribute('color', planet.groundColor);
+        ground.removeAttribute('src');
+        ground.removeAttribute('repeat');
+
+        // Update fog
+        var sceneEl = document.querySelector('a-scene');
+        sceneEl.setAttribute('fog', {
+          type: 'exponential',
+          color: planet.fogColor,
+          density: planet.fogDensity
+        });
+
+        // Show or hide elements
+        document.querySelector('#earthElements').setAttribute('visible', planet.showEarthElements);
+        document.querySelector('#marsElements').setAttribute('visible', planet.showMarsElements);
+        document.querySelector('#jupiterElements').setAttribute('visible', planet.showJupiterElements);
+        document.querySelector('#neptuneElements').setAttribute('visible', planet.showNeptuneElements);
+        document.querySelector('#saturnElements').setAttribute('visible', planet.showSaturnElements);
+        document.querySelector('#mercuryElements').setAttribute('visible', planet.showMercuryElements);
+        document.querySelector('#plutoElements').setAttribute('visible', planet.showPlutoElements);
+
+        // Update planet info display
+        var planetInfo = document.getElementById('planetInfo');
+        planetInfo.innerHTML = 'Planet: ' + planet.name + '<br>Gravity: ' + planet.gravity + ' m/s²';
+
+        // Reset the scene to apply new settings
+        resetScene();
+      }
+
+      function startSimulation() {
+        var heightValue = parseFloat(document.getElementById('heightInput').value);
+        if (heightValue < 0.5) {
+          alert('Height must be at least 0.5 meters.');
+          return;
+        }
+
+        initialPositions.box.y = heightValue;
+        initialPositions.sphere.y = heightValue;
+        initialPositions.cylinder.y = heightValue;
+
+        var planet = planets[currentPlanet];
+        var gravity = planet.gravity;
+        var height = heightValue - 0.5; 
+        var timeToFall = Math.sqrt((2 * height) / gravity);
+        var duration = timeToFall * 1000;
+
+        document.getElementById('timerDisplay').innerHTML = 'Time to Fall: ' + timeToFall.toFixed(2) + ' s';
+        document.getElementById('heightDisplay').innerHTML = 'Height: ' + heightValue.toFixed(1) + ' m';
+
+        simulationRunning = true;
+        startTime = performance.now();
+        lastTime = 0;
+        lastHeight = heightValue;
+
+        // Initialize graph data for 1-sec updates
+        lastGraphUpdateSecond = 0;
+        graphHeightAtLastUpdate = heightValue;
+
+        // Clear old graph data
+        velocityChart.data.labels = [];
+        velocityChart.data.datasets[0].data = [];
+        velocityChart.update();
+
+        accelerationChart.data.labels = [];
+        accelerationChart.data.datasets[0].data = [];
+        accelerationChart.update();
+
+        animateObject('#fallingBox', initialPositions.box, duration);
+        animateObject('#sphere', initialPositions.sphere, duration);
+        animateObject('#cylinder', initialPositions.cylinder, duration);
+
+        requestAnimationFrame(updateGraphs);
+      }
+
+      function animateObject(selector, initialPosition, duration) {
+        var obj = document.querySelector(selector);
+        obj.removeAttribute('animation__fall');
+        obj.setAttribute('position', initialPosition);
+        obj.setAttribute('animation__fall', {
+          property: 'position',
+          to: initialPosition.x + ' 0.5 ' + initialPosition.z,
+          dur: duration,
+          easing: 'easeInQuad'
+        });
+      }
+
+      function updateGraphs(timestamp) {
+        if (!simulationRunning) return;
+
+        var elapsed = (timestamp - startTime) / 1000; // in seconds
+        var obj = document.querySelector('#fallingBox');
+        var position = obj.getAttribute('position');
+        var currentHeight = position.y;
+
+        var currentSecond = Math.floor(elapsed);
+
+        // Update graphs only if a full second has passed since last update
+        if (currentSecond > lastGraphUpdateSecond) {
+          // Calculate velocity over the last second
+          var deltaHeight = currentHeight - graphHeightAtLastUpdate;
+          var velocity = Math.abs(deltaHeight / 1); // 1 second interval
+
+          // Update charts
+          var timeLabel = currentSecond.toString(); // Use integer seconds as labels
+          velocityChart.data.labels.push(timeLabel);
+          velocityChart.data.datasets[0].data.push(velocity);
+          velocityChart.update();
+
+          accelerationChart.data.labels.push(timeLabel);
+          accelerationChart.data.datasets[0].data.push(planetGravity);
+          accelerationChart.update();
+
+          // Update reference points
+          graphHeightAtLastUpdate = currentHeight;
+          lastGraphUpdateSecond = currentSecond;
+        }
+
+        // Stop when object reaches ground
+        if (currentHeight <= 0.51) {
+          simulationRunning = false;
+          return;
+        }
+
+        requestAnimationFrame(updateGraphs);
+      }
+
+      function resetScene() {
+        var heightValue = parseFloat(document.getElementById('heightInput').value) || defaultHeight;
+        initialPositions.box.y = heightValue;
+        initialPositions.sphere.y = heightValue;
+        initialPositions.cylinder.y = heightValue;
+
+        document.querySelector('#fallingBox').removeAttribute('animation__fall');
+        document.querySelector('#sphere').removeAttribute('animation__fall');
+        document.querySelector('#cylinder').removeAttribute('animation__fall');
+
+        document.querySelector('#fallingBox').setAttribute('position', initialPositions.box);
+        document.querySelector('#sphere').setAttribute('position', initialPositions.sphere);
+        document.querySelector('#cylinder').setAttribute('position', initialPositions.cylinder);
+
+        document.getElementById('timerDisplay').innerHTML = 'Time to Fall: -- s';
+        document.getElementById('heightDisplay').innerHTML = 'Height: ' + heightValue.toFixed(1) + ' m';
+        simulationRunning = false;
+      }
+
+      // Initialize the scene with the default planet
+      updatePlanet();
+    </script>
+  </body>
+</html>
